@@ -1,139 +1,168 @@
 package ko.carbonel.ne;
-
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-
 public class Main {
-	public enum Operator {
-		OR('|', 1), AND('&', 1), XOR('^', 2), IMPLIES('>', 3), IMPLIED('<', 3), IFF('=', 4), NOT('-', 0);
-		private final char name;
-		private final int precedence;
-
-		Operator(char c, int p) {
-			this.name = c;
-			this.precedence = p;
+	public static HashMap<HashMap<String, Boolean>, Boolean> getTruthTable(Operand expression, List<String> variables) {
+		HashMap<HashMap<String, Boolean>, Boolean> results = new HashMap<>();
+		for (int i = 0; i < 1 << variables.size(); i++) {
+			HashMap<String, Boolean> variableValues = produceVariableValues(i, variables);
+			results.put(variableValues, expression.calculate(variableValues));
 		}
-
-		public char getName() {
-			return name;
-		}
-
-		public int getPrecedence() {
-			return precedence;
-		}
-
-		public static List<Operator> getOperatorsByPrecedence() {
-			return Arrays.stream(values()).sorted(Comparator.comparingInt(Operator::getPrecedence)).collect(Collectors.toList());
-		}
-
-		public static Operator valueOf(char c){
-			return Arrays.stream(values()).filter(x -> x.name == c).findFirst().orElse(null);
-		}
+		return results;
 	}
-
-	public enum Grouper {
-		START('('), END(')'), UNKNOWN(' ');
-		public final char val;
-
-		Grouper(char c) {
-			this.val = c;
-		}
-
-		static Grouper valueOf(char c) {
-			return Arrays.stream(values()).filter(x -> x.val == c).findFirst().orElse(UNKNOWN);
-		}
+	private static HashMap<String, Boolean> produceVariableValues(int i, List<String> variables) {
+		HashMap<String, Boolean> outMap = new HashMap<>();
+		IntStream.range(0, variables.size()).forEach(j -> outMap.put(variables.get(j), (i & (1 << j)) != 0));
+		return outMap;
 	}
-
-	public abstract static class Proposition{
-		public String expression;
-
-		protected abstract void parse();
+	public static String boolToText(Boolean v) {
+		return v ? "T" : "F";
 	}
-
-	public static class BaseProposition extends Proposition{
-
-		@Override
-		protected void parse() {
-
-		}
+	public static String prettyPrintTruthTable(HashMap<HashMap<String, Boolean>, Boolean> truthTable, String title) {
+		HashMap<String, Boolean> variables = truthTable.keySet().stream().findAny().orElse(null);
+		if (variables == null) return "";
+		String delim = "  ";
+		List<String> vars = new ArrayList<>(variables.keySet());
+		String output = "";
+		output += String.join(delim, vars) + delim + title + "\n";
+		output += truthTable.keySet().stream().sorted(Comparator.comparingInt(x->
+		 x.keySet().stream()
+		  .map(k->x.get(k)?vars.size()-vars.indexOf(k)+1:0)
+		  .reduce(Integer::sum)
+		  .orElse(-1000)
+		)).map(key ->
+			new ArrayList<>(key.values()).stream().map(Main::boolToText).collect(Collectors.joining(delim))
+			 + delim + boolToText(truthTable.get(key)) + "\n"
+		 )
+		 .collect(Collectors.joining(""));
+		return output;
 	}
-
-	public static class CompoundProposition extends Proposition{
-		private Operator mainOperator;
-		private Proposition lhs;
-		private Proposition rhs;
-
-		public CompoundProposition(String expression) {
-			this.expression = expression;
-
-		}
-
-		public void parse() {
-			System.out.println("Parse: "+this.expression);
-			int openCount = 0;
-			int startPoint = -1;
-			List<String> groupedSubProps = new ArrayList<>();
-			for (int i = 0; i < expression.length(); i++) {
-				switch (Grouper.valueOf(expression.charAt(i))) {
-					case START -> {
-						if (openCount == 0) {
-							groupedSubProps.add(expression.substring(startPoint+1, i));
-							startPoint = i;
-						}
-						openCount++;
-					}
-					case END -> {
-						openCount--;
-						if (openCount == 0) {
-							groupedSubProps.add(expression.substring(startPoint+1, i));
-							startPoint = i;
-						}
-					}
-				}
-			}
-			if (startPoint+1!=expression.length()) groupedSubProps.add(expression.substring(startPoint+1));
-			List<String> groupedBracketedSubProps = IntStream.range(0, groupedSubProps.size()).mapToObj(x->x%2==0?groupedSubProps.get(x):(Grouper.START.val+groupedSubProps.get(x)+Grouper.END.val)).collect(Collectors.toList());
-			List<Operator> ops = Operator.getOperatorsByPrecedence();
-			List<String> topLevelLogic = IntStream.range(0, (groupedSubProps.size()+1)/2).map(x->x<<1).mapToObj(groupedSubProps::get).collect(Collectors.toList());
-			List<Optional<Operator>> mostImportantOpInGroup = topLevelLogic.stream()
-			 .map(x->ops.stream().max(Comparator.comparingInt(operator -> x.indexOf(operator.name)))).collect(Collectors.toList()); // Get highest precedence
-			Operator mostImportantOperator = mostImportantOpInGroup.stream()
-			 .max(Comparator.comparingInt(x-> x.isEmpty() ? -1000 : x.get().getPrecedence()))
-			 .orElse(Optional.empty()).orElse(null);
-			if (mostImportantOperator == null){
-				return;
-//				throw new IllegalArgumentException("Empty Expression? : "+this.expression);
-			}
-			for (int i = 0; i < topLevelLogic.size(); i++){
-				int strt = topLevelLogic.get(i).indexOf(mostImportantOperator.name);
-				if (strt !=-1){
-					String start = String.join("", groupedBracketedSubProps.subList(0, i)) + topLevelLogic.get(i).substring(0, strt);
-					String end = topLevelLogic.get(i).substring(strt+1)+(((i+1)<groupedBracketedSubProps.size())?String.join("", groupedBracketedSubProps.subList(i+1, groupedSubProps.size())):"");
-					this.lhs = new CompoundProposition(start);
-					this.rhs = new CompoundProposition(end);
-					this.mainOperator = mostImportantOperator;
-					this.lhs.parse();
-					this.rhs.parse();
-					return;
-				}
-			}
-		}
-
-		@Override
-		public String toString() {
-			if (this.mainOperator == null){
-				return "["+this.expression+"]";
-			}
-			return "{"+lhs+mainOperator.name+rhs+"}";
-		}
-	}
-
 	public static void main(String[] args) {
-//		CompoundProposition proposition = new CompoundProposition("a&b|~c|(a>b)|(c>(d|e))&c");
-//		CompoundProposition proposition = new CompoundProposition("a&b|c>(a|b)=(a&b)");
-		CompoundProposition proposition = new CompoundProposition("(a>b)|(c>(d|e))&c");
-		proposition.parse();
-		System.out.println(proposition);
+		Operand expr = new Implies(new Or(new Implies(new Variable("p"), new Variable("q")),new Implies(new Variable("q"), new Variable("r"))), new Implies(new Variable("p"), new Variable("r")));//((p → q) ∧ (q → r)) → (p → r)
+		HashMap<HashMap<String, Boolean>, Boolean> truthTable = getTruthTable(expr, Arrays.asList("p", "q", "r"));
+		System.out.println(prettyPrintTruthTable(truthTable, expr.toString()));
+	}
+}
+abstract class Operand {
+	boolean value;
+	public Operand() {
+	}
+	abstract public boolean calculate(HashMap<String, Boolean> values);
+}
+class Variable extends Operand {
+	private final String name;
+	Variable(String name) {
+		this.name = name;
+	}
+	public boolean calculate(HashMap<String, Boolean> values) {
+		return values.get(this.name);
+	}
+	@Override
+	public String toString() {
+		return name;
+	}
+}
+abstract class Operator extends Operand {
+	public Operator() {
+	}
+}
+abstract class BinaryOperator extends Operator {
+	Operand a, b;
+	public BinaryOperator(Operand a, Operand b) {
+		this.a = a;
+		this.b = b;
+	}
+	abstract public boolean compute(boolean va, boolean vb);
+	public boolean calculate(HashMap<String, Boolean> values) {
+		return compute(a.calculate(values), b.calculate(values));
+	}
+}
+abstract class UnaryOperator extends Operator {
+	Operand a;
+	public UnaryOperator(Operand a) {
+		this.a = a;
+	}
+	abstract public boolean compute(boolean va);
+	public boolean calculate(HashMap<String, Boolean> values) {
+		return compute(a.calculate(values));
+	}
+}
+class Not extends UnaryOperator {
+	public Not(Operand a) {
+		super(a);
+	}
+	@Override
+	public boolean compute(boolean va) {
+		return !va;
+	}
+	@Override
+	public String toString() {
+		return "¬" + a;
+	}
+}
+class And extends BinaryOperator {
+	public And(Operand a, Operand b) {
+		super(a, b);
+	}
+	@Override
+	public boolean compute(boolean va, boolean vb) {
+		return va & vb;
+	}
+	@Override
+	public String toString() {
+		return "(" + a + "&" + b + ")";
+	}
+}
+class Or extends BinaryOperator {
+	public Or(Operand a, Operand b) {
+		super(a, b);
+	}
+	@Override
+	public boolean compute(boolean va, boolean vb) {
+		return va | vb;
+	}
+	@Override
+	public String toString() {
+		return "(" + a + "|" + b + ")";
+	}
+}
+class Xor extends BinaryOperator {
+	public Xor(Operand a, Operand b) {
+		super(a, b);
+	}
+	@Override
+	public boolean compute(boolean va, boolean vb) {
+		return va ^ vb;
+	}
+	@Override
+	public String toString() {
+		return "(" + a + "^" + b + ")";
+	}
+}
+class Implies extends BinaryOperator {
+	public Implies(Operand a, Operand b) {
+		super(a, b);
+	}
+	@Override
+	public boolean compute(boolean va, boolean vb) {
+		return !va | vb;
+	}
+	@Override
+	public String toString() {
+		return "(" + a + "->" + b + ")";
+	}
+}
+class Iff extends BinaryOperator {
+	public Iff(Operand a, Operand b) {
+		super(a, b);
+	}
+	@Override
+	public boolean compute(boolean va, boolean vb) {
+		return va == vb;
+	}
+	@Override
+	public String toString() {
+		return "(" + a + "<->" + b + ")";
 	}
 }
