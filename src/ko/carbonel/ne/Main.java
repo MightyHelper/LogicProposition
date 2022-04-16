@@ -3,6 +3,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 public class Main {
 	public static HashMap<HashMap<String, Boolean>, Boolean> getTruthTable(Operand expression, List<String> variables) {
 		HashMap<HashMap<String, Boolean>, Boolean> results = new HashMap<>();
@@ -24,25 +25,33 @@ public class Main {
 		HashMap<String, Boolean> variables = truthTable.keySet().stream().findAny().orElse(null);
 		if (variables == null) return "";
 		String delimit = "  ";
-		List<String> vars = new ArrayList<>(variables.keySet());
-		String output = "";
-		output += String.join(delimit, vars) + delimit + title + "\n";
-		output += truthTable.keySet().stream().sorted(Comparator.comparingInt(x ->
+		List<String> varNames = new ArrayList<>(variables.keySet());
+		List<String> headings = Stream.concat(varNames.stream(), Stream.of(title)).toList();
+		List<List<String>> cells = truthTable.keySet().stream().sorted(Comparator.comparingInt(x ->
 		 x.keySet().stream()
-			.map(k -> x.get(k) ? vars.size() - vars.indexOf(k) + 1 : 0)
+			.map(k -> x.get(k) ? varNames.size() - varNames.indexOf(k) + 1 : 0)
 			.reduce(Integer::sum)
 			.orElse(-1000)
-		)).map(key ->
-		 new ArrayList<>(key.values()).stream()
-			.map(Main::boolToText)
-			.collect(Collectors.joining(delimit))
-			+ delimit + boolToText(truthTable.get(key)) + "\n"
-		)
-		 .collect(Collectors.joining(""));
-		if (truthTable.values().stream().allMatch(x -> x)) output += "Tautology";
-		else if (truthTable.values().stream().noneMatch(x -> x)) output += "Contradiction";
-		else output += "Contingency";
-		return output;
+		)).map(key -> Stream.concat(new ArrayList<>(key.values()).stream(), Stream.of(truthTable.get(key)))
+			.map(Main::boolToText).toList()
+		).toList();
+		StringBuilder output = new StringBuilder();
+		List<Integer> columnWidths = headings.stream().map(String::length).map(x->x+4).toList();
+		IntStream.range(0, columnWidths.size()).mapToObj(i -> pad(headings.get(i), columnWidths.get(i))).forEach(output::append);
+		output.append("\n");
+		cells.forEach(cell->{
+			IntStream.range(0, columnWidths.size()).mapToObj(i -> pad(cell.get(i), columnWidths.get(i))).forEach(output::append);
+			output.append("\n");
+		});
+		if (truthTable.values().stream().allMatch(x -> x)) output.append("Tautology");
+		else if (truthTable.values().stream().noneMatch(x -> x)) output.append("Contradiction");
+		else output.append("Contingency");
+		return output.toString();
+	}
+	private static String pad(String s, Integer integer) {
+		int start = (integer - s.length())>>1;
+		int end = integer - s.length() - start;
+		return " ".repeat(Math.max(start, 0)) + s + " ".repeat(Math.max(end, 0));
 	}
 	public static List<String> getTree(String expression) {
 		int openCount = 0;
@@ -131,7 +140,7 @@ public class Main {
 //		Operand expr = parseExpression("((p ∨ q) ∧ (p → r) ∧ (q → r)) → r");
 //		Operand expr = parseExpression("[p → (q → r)] → [(p → q) → (p → r)]");
 		Operand expr = parseExpression(replacer("my cat is tall implies my cat can get treats for free"));
-		HashMap<HashMap<String, Boolean>, Boolean> truthTable = getTruthTable(expr, Arrays.asList("my cat is tall", "my cat can get treats for free"));
+		HashMap<HashMap<String, Boolean>, Boolean> truthTable = getTruthTable(expr, expr.getVariables().stream().map(Variable::getName).toList());
 		System.out.println(prettyPrintTruthTable(truthTable, expr.toString()));
 	}
 }
@@ -140,8 +149,12 @@ abstract class Operand {
 	public Operand() {
 	}
 	abstract public boolean calculate(HashMap<String, Boolean> values);
+	abstract public List<Variable> getVariables();
 }
 class Variable extends Operand {
+	public String getName() {
+		return name;
+	}
 	private final String name;
 	Variable(String name) {
 		this.name = name;
@@ -157,6 +170,11 @@ class Variable extends Operand {
 	public String toString() {
 		return name;
 	}
+	public List<Variable> getVariables(){
+		List<Variable> v = new ArrayList<>(1);
+		v.add(this);
+		return v;
+	}
 }
 abstract class Operator extends Operand {
 	public Operator() {
@@ -164,6 +182,12 @@ abstract class Operator extends Operand {
 }
 abstract class BinaryOperator extends Operator {
 	Operand a, b;
+	@Override
+	public List<Variable> getVariables() {
+		List<Variable> out = this.a.getVariables();
+		out.addAll(this.b.getVariables());
+		return out;
+	}
 	public BinaryOperator(Operand a, Operand b) {
 		this.a = a;
 		this.b = b;
@@ -177,6 +201,10 @@ abstract class UnaryOperator extends Operator {
 	Operand a;
 	public UnaryOperator(Operand a) {
 		this.a = a;
+	}
+	@Override
+	public List<Variable> getVariables() {
+		return this.a.getVariables();
 	}
 	abstract public boolean compute(boolean va);
 	public boolean calculate(HashMap<String, Boolean> values) {
