@@ -1,4 +1,5 @@
 package ko.carbonel.ne;
+import java.lang.reflect.InvocationTargetException;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -22,25 +23,115 @@ public class Main {
 	public static String prettyPrintTruthTable(HashMap<HashMap<String, Boolean>, Boolean> truthTable, String title) {
 		HashMap<String, Boolean> variables = truthTable.keySet().stream().findAny().orElse(null);
 		if (variables == null) return "";
-		String delim = "  ";
+		String delimit = "  ";
 		List<String> vars = new ArrayList<>(variables.keySet());
 		String output = "";
-		output += String.join(delim, vars) + delim + title + "\n";
-		output += truthTable.keySet().stream().sorted(Comparator.comparingInt(x->
+		output += String.join(delimit, vars) + delimit + title + "\n";
+		output += truthTable.keySet().stream().sorted(Comparator.comparingInt(x ->
 		 x.keySet().stream()
-		  .map(k->x.get(k)?vars.size()-vars.indexOf(k)+1:0)
-		  .reduce(Integer::sum)
-		  .orElse(-1000)
+			.map(k -> x.get(k) ? vars.size() - vars.indexOf(k) + 1 : 0)
+			.reduce(Integer::sum)
+			.orElse(-1000)
 		)).map(key ->
-			new ArrayList<>(key.values()).stream().map(Main::boolToText).collect(Collectors.joining(delim))
-			 + delim + boolToText(truthTable.get(key)) + "\n"
-		 )
+		 new ArrayList<>(key.values()).stream()
+			.map(Main::boolToText)
+			.collect(Collectors.joining(delimit))
+			+ delimit + boolToText(truthTable.get(key)) + "\n"
+		)
 		 .collect(Collectors.joining(""));
+		if (truthTable.values().stream().allMatch(x -> x)) output += "Tautology";
+		else if (truthTable.values().stream().noneMatch(x -> x)) output += "Contradiction";
+		else output += "Contingency";
 		return output;
 	}
+	public static List<String> getTree(String expression) {
+		int openCount = 0;
+		int startPoint = -1;
+		expression = expression
+		 .replaceAll("\\[", "(")
+		 .replaceAll("]", ")");
+		List<String> groupedSubProps = new ArrayList<>();
+		for (int i = 0; i < expression.length(); i++) {
+			if (expression.charAt(i) == '(') {
+				if (openCount == 0) {
+					groupedSubProps.add(expression.substring(startPoint + 1, i));
+					startPoint = i;
+				}
+				openCount++;
+			} else if (expression.charAt(i) == ')') {
+				openCount--;
+				if (openCount == 0) {
+					groupedSubProps.add(expression.substring(startPoint + 1, i));
+					startPoint = i;
+				}
+			}
+		}
+		if (startPoint < expression.length() - 1) groupedSubProps.add(expression.substring(startPoint + 1));
+		return groupedSubProps.get(0).equals("") && groupedSubProps.size() == 2 ? getTree(groupedSubProps.get(1)) : groupedSubProps;
+	}
+	public static Operand parseExpression(String expression) {
+		// ((p → q) ∧ (q → r)) → (p → r)
+//		expression = expression.replaceAll(" +", "");
+		expression = expression.trim();
+		List<String> parts = getTree(expression);
+		List<String> precedence = Arrays.asList(Or.repr, And.repr, Xor.repr, Implies.repr, Iff.repr);
+		if (Arrays.stream(expression.split("")).noneMatch(precedence::contains)) {
+			return new Variable(expression);
+		}
+		List<String> topLevelOps = IntStream.range(0, (parts.size() + 1) >> 1).map(x -> x << 1).mapToObj(parts::get).toList();
+		List<String> subExpressions = IntStream.range(0, parts.size() >> 1).map(x -> (x << 1) + 1).mapToObj(parts::get).toList();
+		String topAbrev = String.join("", topLevelOps);
+		String topPrecedence = precedence.stream().max(Comparator.comparingInt(x -> topAbrev.contains(x) ? precedence.indexOf(x) : -1)).orElse("=");
+		if (!topAbrev.contains(topPrecedence)) {
+			throw new IllegalArgumentException("No unbracketed expressions");
+		}
+		int sectionIndex = topLevelOps.indexOf(topLevelOps.stream().filter(x -> x.contains(topPrecedence)).findFirst().orElse(null));
+		return finalValueParser(topLevelOps, sectionIndex, topPrecedence, subExpressions);
+//		new Implies(new Or(new Implies(new Variable("p"), new Variable("q")),new Implies(new Variable("q"), new Variable("r"))), new Implies(new Variable("p"), new Variable("r")));//((p → q) ∧ (q → r)) → (p → r)
+	}
+	private static Operand finalValueParser(List<String> topLevelOps, int sectionIndex, String topPrecedence, List<String> subExpressions) {
+		HashMap<String, Class<?>> binaryMapper = new HashMap<>();
+		binaryMapper.put(Iff.repr, Iff.class);
+		binaryMapper.put(Implies.repr, Implies.class);
+		binaryMapper.put(Xor.repr, Xor.class);
+		binaryMapper.put(And.repr, And.class);
+		binaryMapper.put(Or.repr, Or.class);
+		String[] parts = topLevelOps.get(sectionIndex).split(topPrecedence, 4);
+		List<String> fullOperations = merge(topLevelOps, subExpressions.stream().map(x -> "(" + x + ")").toList());
+		String lhs = String.join("", fullOperations.subList(0, sectionIndex << 1)) + parts[0];
+		String rhs = parts[1] + String.join("", fullOperations.subList((sectionIndex << 1) + 1, fullOperations.size()));
+		try {
+			return (Operand) (binaryMapper.get(topPrecedence)).getConstructor(Operand.class, Operand.class).newInstance(parseExpression(lhs), parseExpression(rhs));
+		} catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
+			e.printStackTrace();
+		}
+		return null;
+	}
+	private static List<String> merge(List<String> topLevelOps, List<String> subExpressions) {
+		List<String> out = new ArrayList<>();
+		for (int i = 0; i < topLevelOps.size() + subExpressions.size(); i++) {
+			if ((i & 1) == 0) out.add(topLevelOps.get(i >> 1));
+			else out.add(subExpressions.get(i >> 1));
+		}
+		return out;
+	}
+	public static String replacer(String expression) {
+		return expression
+		 .replaceAll("(->)|( implies )", Implies.repr)
+		 .replaceAll("(<->)|( iff )", Iff.repr)
+		 .replaceAll("(&)|( and )", And.repr)
+		 .replaceAll("(\\|)|( or )", Or.repr)
+		 .replaceAll("(\\^)|( xor )", Xor.repr);
+	}
 	public static void main(String[] args) {
-		Operand expr = new Implies(new Or(new Implies(new Variable("p"), new Variable("q")),new Implies(new Variable("q"), new Variable("r"))), new Implies(new Variable("p"), new Variable("r")));//((p → q) ∧ (q → r)) → (p → r)
-		HashMap<HashMap<String, Boolean>, Boolean> truthTable = getTruthTable(expr, Arrays.asList("p", "q", "r"));
+//		Operand expr = new Implies(new Or(new Implies(new Variable("p"), new Variable("q")),new Implies(new Variable("q"), new Variable("r"))), new Implies(new Variable("p"), new Variable("r")));//((p → q) ∧ (q → r)) → (p → r)
+//		HashMap<HashMap<String, Boolean>, Boolean> truthTable = getTruthTable(expr, Arrays.asList("p", "q", "r"));
+//		System.out.println(prettyPrintTruthTable(truthTable, expr.toString()));
+//		Operand expr = parseExpression("((p → q) ∧ (q → r)) → (p → r)");
+//		Operand expr = parseExpression("((p ∨ q) ∧ (p → r) ∧ (q → r)) → r");
+//		Operand expr = parseExpression("[p → (q → r)] → [(p → q) → (p → r)]");
+		Operand expr = parseExpression(replacer("my cat is tall implies my cat can get treats for free"));
+		HashMap<HashMap<String, Boolean>, Boolean> truthTable = getTruthTable(expr, Arrays.asList("my cat is tall", "my cat can get treats for free"));
 		System.out.println(prettyPrintTruthTable(truthTable, expr.toString()));
 	}
 }
@@ -56,7 +147,11 @@ class Variable extends Operand {
 		this.name = name;
 	}
 	public boolean calculate(HashMap<String, Boolean> values) {
-		return values.get(this.name);
+		try{
+			return values.get(this.name);
+		}catch(NullPointerException ex){
+			throw new RuntimeException("Could not find value for proposition: '"+name+"'");
+		}
 	}
 	@Override
 	public String toString() {
@@ -89,6 +184,7 @@ abstract class UnaryOperator extends Operator {
 	}
 }
 class Not extends UnaryOperator {
+	public static String repr = "~";
 	public Not(Operand a) {
 		super(a);
 	}
@@ -102,6 +198,7 @@ class Not extends UnaryOperator {
 	}
 }
 class And extends BinaryOperator {
+	public static String repr = "∧";
 	public And(Operand a, Operand b) {
 		super(a, b);
 	}
@@ -111,10 +208,11 @@ class And extends BinaryOperator {
 	}
 	@Override
 	public String toString() {
-		return "(" + a + "&" + b + ")";
+		return "(" + a + repr + b + ")";
 	}
 }
 class Or extends BinaryOperator {
+	public static String repr = "∨";
 	public Or(Operand a, Operand b) {
 		super(a, b);
 	}
@@ -124,10 +222,11 @@ class Or extends BinaryOperator {
 	}
 	@Override
 	public String toString() {
-		return "(" + a + "|" + b + ")";
+		return "(" + a + repr + b + ")";
 	}
 }
 class Xor extends BinaryOperator {
+	public static String repr = "^";
 	public Xor(Operand a, Operand b) {
 		super(a, b);
 	}
@@ -137,10 +236,11 @@ class Xor extends BinaryOperator {
 	}
 	@Override
 	public String toString() {
-		return "(" + a + "^" + b + ")";
+		return "(" + a + repr + b + ")";
 	}
 }
 class Implies extends BinaryOperator {
+	public static String repr = "→";
 	public Implies(Operand a, Operand b) {
 		super(a, b);
 	}
@@ -150,10 +250,11 @@ class Implies extends BinaryOperator {
 	}
 	@Override
 	public String toString() {
-		return "(" + a + "->" + b + ")";
+		return "(" + a + repr + b + ")";
 	}
 }
 class Iff extends BinaryOperator {
+	public static String repr = "=";
 	public Iff(Operand a, Operand b) {
 		super(a, b);
 	}
@@ -163,6 +264,6 @@ class Iff extends BinaryOperator {
 	}
 	@Override
 	public String toString() {
-		return "(" + a + "<->" + b + ")";
+		return "(" + a + repr + b + ")";
 	}
 }
