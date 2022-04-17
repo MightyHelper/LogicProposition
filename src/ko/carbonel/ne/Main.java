@@ -82,6 +82,9 @@ public class Main {
 		// ((p → q) ∧ (q → r)) → (p → r)
 //		expression = expression.replaceAll(" +", "");
 		expression = expression.trim();
+		if (expression.startsWith(Not.repr)){
+			return new Not(parseExpression(expression.substring(1)));
+		}
 		List<String> parts = getTree(expression);
 		List<String> precedence = Arrays.asList(Or.repr, And.repr, Xor.repr, Implies.repr, Iff.repr);
 		if (Arrays.stream(expression.split("")).noneMatch(precedence::contains)) {
@@ -105,7 +108,7 @@ public class Main {
 		binaryMapper.put(Xor.repr, Xor.class);
 		binaryMapper.put(And.repr, And.class);
 		binaryMapper.put(Or.repr, Or.class);
-		String[] parts = topLevelOps.get(sectionIndex).split(topPrecedence, 4);
+		String[] parts = topLevelOps.get(sectionIndex).split(topPrecedence, 2);
 		List<String> fullOperations = merge(topLevelOps, subExpressions.stream().map(x -> "(" + x + ")").toList());
 		String lhs = String.join("", fullOperations.subList(0, sectionIndex << 1)) + parts[0];
 		String rhs = parts[1] + String.join("", fullOperations.subList((sectionIndex << 1) + 1, fullOperations.size()));
@@ -126,7 +129,10 @@ public class Main {
 	}
 	public static String replacer(String expression) {
 		return expression
-		 .replaceAll("(->)|( implies )", Implies.repr)
+		 .toLowerCase()
+		 .replaceAll("(if)|(it is)", "")
+		 .replaceAll(" ?(~)|(not (true (that )?)?)|(untrue )", Not.repr)
+		 .replaceAll("(->)|( implies )|( therefore )|( then )", Implies.repr)
 		 .replaceAll("(<->)|( iff )", Iff.repr)
 		 .replaceAll("(&)|( and )", And.repr)
 		 .replaceAll("(\\|)|( or )", Or.repr)
@@ -139,7 +145,10 @@ public class Main {
 //		Operand expr = parseExpression("((p → q) ∧ (q → r)) → (p → r)");
 //		Operand expr = parseExpression("((p ∨ q) ∧ (p → r) ∧ (q → r)) → r");
 //		Operand expr = parseExpression("[p → (q → r)] → [(p → q) → (p → r)]");
-		Operand expr = parseExpression(replacer("my cat is tall implies my cat can get treats for free"));
+//		Operand expr = parseExpression(replacer("[(p -> q) and (q -> r)] implies (p -> r)"));
+//		Operand expr = parseExpression(replacer("If all biologists study plants and Joe studies plants then Joe is a biologist"));
+		Operand expr = parseExpression(replacer("not (p and (q->r))"));
+//		Operand expr = parseExpression(replacer("It is not true that I ate all the cake"));
 		HashMap<HashMap<String, Boolean>, Boolean> truthTable = getTruthTable(expr, expr.getVariables().stream().map(Variable::getName).toList());
 		System.out.println(prettyPrintTruthTable(truthTable, expr.toString()));
 	}
