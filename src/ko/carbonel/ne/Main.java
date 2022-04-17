@@ -1,7 +1,6 @@
 package ko.carbonel.ne;
 import java.lang.reflect.InvocationTargetException;
 import java.util.*;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 public class Main {
@@ -24,7 +23,6 @@ public class Main {
 	public static String prettyPrintTruthTable(HashMap<HashMap<String, Boolean>, Boolean> truthTable, String title) {
 		HashMap<String, Boolean> variables = truthTable.keySet().stream().findAny().orElse(null);
 		if (variables == null) return "";
-		String delimit = "  ";
 		List<String> varNames = new ArrayList<>(variables.keySet());
 		List<String> headings = Stream.concat(varNames.stream(), Stream.of(title)).toList();
 		List<List<String>> cells = truthTable.keySet().stream().sorted(Comparator.comparingInt(x ->
@@ -79,8 +77,6 @@ public class Main {
 		return groupedSubProps.get(0).equals("") && groupedSubProps.size() == 2 ? getTree(groupedSubProps.get(1)) : groupedSubProps;
 	}
 	public static Operand parseExpression(String expression) {
-		// ((p → q) ∧ (q → r)) → (p → r)
-//		expression = expression.replaceAll(" +", "");
 		expression = expression.trim();
 		if (expression.startsWith(Not.repr)){
 			return new Not(parseExpression(expression.substring(1)));
@@ -88,18 +84,17 @@ public class Main {
 		List<String> parts = getTree(expression);
 		List<String> precedence = Arrays.asList(Or.repr, And.repr, Xor.repr, Implies.repr, Iff.repr);
 		if (Arrays.stream(expression.split("")).noneMatch(precedence::contains)) {
-			return new Variable(expression);
+			return !parts.get(0).equals(expression) ? parseExpression(parts.get(0)) : new Variable(expression);
 		}
 		List<String> topLevelOps = IntStream.range(0, (parts.size() + 1) >> 1).map(x -> x << 1).mapToObj(parts::get).toList();
 		List<String> subExpressions = IntStream.range(0, parts.size() >> 1).map(x -> (x << 1) + 1).mapToObj(parts::get).toList();
 		String topAbrev = String.join("", topLevelOps);
 		String topPrecedence = precedence.stream().max(Comparator.comparingInt(x -> topAbrev.contains(x) ? precedence.indexOf(x) : -1)).orElse("=");
 		if (!topAbrev.contains(topPrecedence)) {
-			throw new IllegalArgumentException("No unbracketed expressions");
+			throw new IllegalArgumentException("No unbracketed expressions:" +expression);
 		}
 		int sectionIndex = topLevelOps.indexOf(topLevelOps.stream().filter(x -> x.contains(topPrecedence)).findFirst().orElse(null));
 		return finalValueParser(topLevelOps, sectionIndex, topPrecedence, subExpressions);
-//		new Implies(new Or(new Implies(new Variable("p"), new Variable("q")),new Implies(new Variable("q"), new Variable("r"))), new Implies(new Variable("p"), new Variable("r")));//((p → q) ∧ (q → r)) → (p → r)
 	}
 	private static Operand finalValueParser(List<String> topLevelOps, int sectionIndex, String topPrecedence, List<String> subExpressions) {
 		HashMap<String, Class<?>> binaryMapper = new HashMap<>();
@@ -130,24 +125,23 @@ public class Main {
 	public static String replacer(String expression) {
 		return expression
 		 .toLowerCase()
-		 .replaceAll("(if)|(it is)", "")
-		 .replaceAll(" ?(~)|(not (true (that )?)?)|(untrue )", Not.repr)
-		 .replaceAll("(->)|( implies )|( therefore )|( then )", Implies.repr)
-		 .replaceAll("(<->)|( iff )", Iff.repr)
-		 .replaceAll("(&)|( and )", And.repr)
-		 .replaceAll("(\\|)|( or )", Or.repr)
-		 .replaceAll("(\\^)|( xor )", Xor.repr);
+		 .replaceAll("(if )|(it is )", "")
+		 .replaceAll(" ?(~)|(-)|(not ?(true ?(that )?)?)|(untrue ?)", Not.repr)
+		 .replaceAll("(->)|( ?implies ?)|( ?therefore ?)|( ?then ?)", Implies.repr)
+		 .replaceAll("(<->)|( ?iff ?)", Iff.repr)
+		 .replaceAll("(&)|( ?and ?)", And.repr)
+		 .replaceAll("(\\|)|( ?or ?)", Or.repr)
+		 .replaceAll("(\\^)|( ?xor ?)", Xor.repr);
 	}
 	public static void main(String[] args) {
-//		Operand expr = new Implies(new Or(new Implies(new Variable("p"), new Variable("q")),new Implies(new Variable("q"), new Variable("r"))), new Implies(new Variable("p"), new Variable("r")));//((p → q) ∧ (q → r)) → (p → r)
-//		HashMap<HashMap<String, Boolean>, Boolean> truthTable = getTruthTable(expr, Arrays.asList("p", "q", "r"));
-//		System.out.println(prettyPrintTruthTable(truthTable, expr.toString()));
 //		Operand expr = parseExpression("((p → q) ∧ (q → r)) → (p → r)");
 //		Operand expr = parseExpression("((p ∨ q) ∧ (p → r) ∧ (q → r)) → r");
 //		Operand expr = parseExpression("[p → (q → r)] → [(p → q) → (p → r)]");
 //		Operand expr = parseExpression(replacer("[(p -> q) and (q -> r)] implies (p -> r)"));
 //		Operand expr = parseExpression(replacer("If all biologists study plants and Joe studies plants then Joe is a biologist"));
-		Operand expr = parseExpression(replacer("not (p and (q->r))"));
+//		Operand expr = parseExpression(replacer("((p iff q) implies q)=((p and -q)or(q and -p)or q)"));
+//		Operand expr = parseExpression(replacer("((p and not q) or ((q or q) and (q or not p)))=(p or q)"));
+		Operand expr = parseExpression(replacer("[(p and not(q and r)) or (p then q)] = ((p and -r) or (-p) or 1)"));
 //		Operand expr = parseExpression(replacer("It is not true that I ate all the cake"));
 		HashMap<HashMap<String, Boolean>, Boolean> truthTable = getTruthTable(expr, expr.getVariables().stream().map(Variable::getName).toList());
 		System.out.println(prettyPrintTruthTable(truthTable, expr.toString()));
@@ -161,6 +155,8 @@ abstract class Operand {
 	abstract public List<Variable> getVariables();
 }
 class Variable extends Operand {
+	public static String TRUE = "1";
+	public static String FALSE = "0";
 	public String getName() {
 		return name;
 	}
@@ -169,6 +165,8 @@ class Variable extends Operand {
 		this.name = name;
 	}
 	public boolean calculate(HashMap<String, Boolean> values) {
+		if (this.name.equals(TRUE))return true;
+		if (this.name.equals(FALSE))return false;
 		try{
 			return values.get(this.name);
 		}catch(NullPointerException ex){
@@ -181,7 +179,7 @@ class Variable extends Operand {
 	}
 	public List<Variable> getVariables(){
 		List<Variable> v = new ArrayList<>(1);
-		v.add(this);
+		if (!this.name.equals(TRUE) && !this.name.equals(FALSE)) v.add(this);
 		return v;
 	}
 }
