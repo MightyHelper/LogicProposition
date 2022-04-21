@@ -4,9 +4,11 @@ import ko.carbonel.ne.util.operands.*;
 
 import java.lang.reflect.InvocationTargetException;
 import java.util.*;
+import java.util.stream.IntStream;
 public class Util {
 	public static final List<String> PRECEDENCE = Arrays.asList(Or.repr, And.repr, Xor.repr, Implies.repr, Iff.repr);
-	private Util(){}
+	private Util() {
+	}
 	public static String boolToText(Boolean v) {
 		return v ? "T" : "F";
 	}
@@ -69,5 +71,32 @@ public class Util {
 	}
 	public static Optional<String> getTopPrecedenceOperator(List<String> expressions) {
 		return PRECEDENCE.stream().max(Comparator.comparingInt(x -> expressions.stream().anyMatch(k -> k.contains(x)) ? PRECEDENCE.indexOf(x) : -1));
+	}
+	public static List<String> getSubExpressions(List<String> parts) {
+		return IntStream.range(0, parts.size() >> 1).map(x -> (x << 1) + 1).mapToObj(parts::get).toList();
+	}
+	public static List<String> getTopLevelExpressions(List<String> parts) {
+		return IntStream.range(0, (parts.size() + 1) >> 1).map(x -> x << 1).mapToObj(parts::get).toList();
+	}
+	public static boolean containsAnyOperator(String expression) {
+		return Arrays.stream(expression.split("")).anyMatch(PRECEDENCE::contains);
+	}
+	public static HashMap<String, Boolean> produceVariableValues(int i, List<String> variables) {
+		HashMap<String, Boolean> outMap = new HashMap<>();
+		IntStream.range(0, variables.size()).forEach(j -> outMap.put(variables.get(j), (i & (1 << j)) != 0));
+		return outMap;
+	}
+	public static String analyseExpressionTruthValue(List<Pair<HashMap<String, Boolean>, Boolean>> truthTable) {
+		if (truthTable.stream().allMatch(x -> x.second)) return "Tautology";
+		else if (truthTable.stream().noneMatch(x -> x.second)) return "Contradiction";
+		else return "Contingency";
+	}
+	public static List<String> addImpliedBrackets(List<String> elements) {
+		return elements.stream().map("(%s)"::formatted).toList();
+	}
+	public static String getExpressionPartThatContains(List<String> expressions, String operator) {
+		// We already checked this
+		//noinspection OptionalGetWithoutIsPresent
+		return expressions.stream().filter(x -> x.contains(operator)).findFirst().get();
 	}
 }
