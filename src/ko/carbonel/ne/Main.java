@@ -27,11 +27,11 @@ public class Main {
 		List<String> headings = Stream.concat(varNames.stream(), Stream.of(title)).toList();
 		List<List<String>> cells = truthTable.keySet().stream().sorted(Comparator.comparingInt(x ->
 		 x.keySet().stream()
-			.map(k -> x.get(k) ? varNames.size() - varNames.indexOf(k) + 1 : 0)
+			.map(k -> x.get(k) ? varNames.size() - varNames.indexOf(k) : 0)
 			.reduce(Integer::sum)
 			.orElse(-1000)
 		)).map(key -> Stream.concat(new ArrayList<>(key.values()).stream(), Stream.of(truthTable.get(key)))
-			.map(Main::boolToText).toList()
+		 .map(Main::boolToText).toList()
 		).toList();
 		StringBuilder output = new StringBuilder();
 		List<Integer> columnWidths = headings.stream().map(String::length).map(x->x+4).toList();
@@ -129,21 +129,41 @@ public class Main {
 		 .replaceAll(" ?(~)|(-)|(not ?(true ?(that )?)?)|(untrue ?)", Not.repr)
 		 .replaceAll("(->)|( ?implies ?)|( ?therefore ?)|( ?then ?)", Implies.repr)
 		 .replaceAll("(<->)|( ?iff ?)", Iff.repr)
-		 .replaceAll("(&)|( ?and ?)", And.repr)
+		 .replaceAll("(&)|( ?and ?)|( ?but ?)", And.repr)
 		 .replaceAll("(\\|)|( ?or ?)", Or.repr)
 		 .replaceAll("(\\^)|( ?xor ?)", Xor.repr);
 	}
 	public static void main(String[] args) {
-//		Operand expr = parseExpression("((p → q) ∧ (q → r)) → (p → r)");
-//		Operand expr = parseExpression("((p ∨ q) ∧ (p → r) ∧ (q → r)) → r");
-//		Operand expr = parseExpression("[p → (q → r)] → [(p → q) → (p → r)]");
-//		Operand expr = parseExpression(replacer("[(p -> q) and (q -> r)] implies (p -> r)"));
-//		Operand expr = parseExpression(replacer("If all biologists study plants and Joe studies plants then Joe is a biologist"));
-//		Operand expr = parseExpression(replacer("((p iff q) implies q)=((p and -q)or(q and -p)or q)"));
-//		Operand expr = parseExpression(replacer("((p and not q) or ((q or q) and (q or not p)))=(p or q)"));
-		Operand expr = parseExpression(replacer("[(p and not(q and r)) or (p then q)] = ((p and -r) or (-p) or 1)"));
-//		Operand expr = parseExpression(replacer("It is not true that I ate all the cake"));
-		HashMap<HashMap<String, Boolean>, Boolean> truthTable = getTruthTable(expr, expr.getVariables().stream().map(Variable::getName).toList());
+		String EX_13_1 = "((p → q) ∧ (q → r)) → (p → r)";
+		String EX_13_2 = "((p ∨ q) ∧ (p → r) ∧ (q → r)) → r";
+		String EX_13_3 = "[p → (q → r)] → [(p → q) → (p → r)]";
+		String EX_18 = "t and (not s) and (p or (q and not r))";
+		String EX_19_Example = "If a person has a headache and a person feels tired then the person has a cold";
+		String EX_19_1 = "((if my cat has strong legs then my cat can jump onto the counter) and (my cat is on the counter and my cat is tall then my cat can reach the treats) but (my cat has strong legs and not my cat is tall)) therefore not my cat can reach the treats";
+		String EX_20_1 = "(1 then a1) and (1 then a2) and (a1 and a2 and a3 then a4) and (a1 and a2 and a4 then a5) and (a1 and a2 and a3 and a4 then a6) and (a5 and a6 then a7) and (a2 then a3) and (a7 then 0)";
+		String EX_20_2 = "(1 then a1) and (1 then a2) and (a1 and a2 and a4 then a3) and (a1 and a5 and a6) and (a2 and a7 then a5) and (a1 and a3 and a5 then a7) and (a2 then a4) and (a4 then a8) and (a2 and a3 and a4 then a9) and(a3 and a9 then a6) and (a6 and a7 then a8) and (a7 and a8 and a9 then 0)";
+		if (args.length <= 0){
+			System.out.println("Usage:");
+			System.out.println("Available expressions:");
+			Arrays.asList(
+			 "0:EX_13_1       : "+EX_13_1,
+			 "1:EX_13_2       : "+EX_13_2,
+			 "2:EX_13_3       : "+EX_13_3,
+			 "3:EX_18         : "+EX_18,
+			 "4:EX_19_Example : "+EX_19_Example,
+			 "5:EX_19_1       : "+EX_19_1,
+			 "6:EX_20_1       : "+EX_20_1,
+			 "7:EX_20_2       : "+EX_20_2
+			).forEach(System.out::println);
+			return;
+		}
+		Operand expr;
+		String expressionText = switch (args[0]) {
+			case "preset" -> Arrays.asList(EX_13_1, EX_13_2, EX_13_3, EX_18, EX_19_Example, EX_19_1, EX_20_1, EX_20_2).get(Integer.parseInt(args[1]));
+			default -> args[1];
+		};
+		expr = parseExpression(replacer(expressionText));
+		HashMap<HashMap<String, Boolean>, Boolean> truthTable = getTruthTable(expr, expr.getVariables().stream().map(Variable::getName).distinct().toList());
 		System.out.println(prettyPrintTruthTable(truthTable, expr.toString()));
 	}
 }

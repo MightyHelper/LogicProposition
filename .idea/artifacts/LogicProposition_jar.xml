@@ -1,0 +1,8 @@
+<component name="ArtifactManager">
+  <artifact type="jar" name="LogicProposition:jar">
+    <output-path>$PROJECT_DIR$/out/artifacts/LogicProposition_jar</output-path>
+    <root id="archive" name="LogicProposition.jar">
+      <element id="module-output" name="LogicProposition" />
+    </root>
+  </artifact>
+</component>
