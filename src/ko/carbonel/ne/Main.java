@@ -11,23 +11,8 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 public class Main {
-	public static String replacer(String expression) {
-		return expression
-		 .toLowerCase()
-		 .replaceAll("(if )|(it is )", "")
-		 .replaceAll(" ?(~)|(-)|(not ?(true ?(that )?)?)|(untrue ?)", Not.repr)
-		 .replaceAll("(->)|( ?implies ?)|( ?therefore ?)|( ?then ?)", Implies.repr)
-		 .replaceAll("(<->)|( ?iff ?)", Iff.repr)
-		 .replaceAll("(&)|( ?and ?)|( ?but ?)", And.repr)
-		 .replaceAll("(\\|)|( ?or ?)", Or.repr)
-		 .replaceAll("(\\^)|( ?xor ?)", Xor.repr);
-	}
-	public static void showOperand(Operand op) {
-		List<Pair<HashMap<String, Boolean>, Boolean>> truthTable = getTruthTable(op, op.getVariables().stream().map(Variable::getName).distinct().toList());
-		System.out.println(prettyPrintTruthTable(truthTable, op.toString()));
-	}
 	public static void main(String[] args) {
-		if (args.length <= 0) {
+		if (args.length <= 2) {
 			printUsage();
 			return;
 		}
@@ -45,14 +30,25 @@ public class Main {
 		System.out.println("Interpreted as : " + replacedOperations);
 		Operand expr = parseExpression(replacedOperations);
 		showOperand(expr);
-		showOperand(expr.simplify(true));
-		showOperand(expr.simplify(false));
-		showOperand(new Iff(expr.simplify(true), expr));
-		showOperand(new Iff(expr.simplify(false), expr));
+	}
+	public static String replacer(String expression) {
+		return expression
+		 .toLowerCase()
+		 .replaceAll("(if )|(it is )", "")
+		 .replaceAll(" ?(~)|(-)|(not ?(true ?(that )?)?)|(untrue ?)", Not.repr)
+		 .replaceAll("(->)|( ?implies ?)|( ?therefore ?)|( ?then ?)", Implies.repr)
+		 .replaceAll("(<->)|( ?iff ?)", Iff.repr)
+		 .replaceAll("(&)|( ?and ?)|( ?but ?)", And.repr)
+		 .replaceAll("(\\|)|( ?or ?)", Or.repr)
+		 .replaceAll("(\\^)|( ?xor ?)", Xor.repr);
+	}
+	public static void showOperand(Operand op) {
+		List<Pair<HashMap<String, Boolean>, Boolean>> truthTable = getTruthTable(op, op.getVariables().stream().map(Variable::getName).distinct().toList());
+		System.out.println(prettyPrintTruthTable(truthTable, op.toString()));
 	}
 	private static void printUsage() {
 		System.out.println("Argument usage: [preset <index>|custom \"Proposition\"] ");
-		System.out.println("Available expressions:");
+		System.out.println("Available preset expressions:");
 		Arrays.stream(PresetExpression.values()).map(PresetExpression::toIndexed).forEach(System.out::println);
 	}
 	public static List<Pair<HashMap<String, Boolean>, Boolean>> getTruthTable(Operand expression, List<String> variables) {
