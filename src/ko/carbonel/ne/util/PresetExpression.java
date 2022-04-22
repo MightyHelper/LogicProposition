@@ -1,6 +1,4 @@
 package ko.carbonel.ne.util;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 public enum PresetExpression {
 	EX_13_1("((p → q) ∧ (q → r)) → (p → r)"),

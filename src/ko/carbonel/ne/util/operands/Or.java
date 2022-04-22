@@ -1,6 +1,6 @@
 package ko.carbonel.ne.util.operands;
 public class Or extends BinaryOperator {
-	public static String repr = "∨";
+	public static final String repr = "∨";
 	public Or(Operand a, Operand b) {
 		super(a, b);
 	}
@@ -15,7 +15,7 @@ public class Or extends BinaryOperator {
 	@Override
 	public Operand simplify(boolean toAnd) {
 		this.simplifyArguments(toAnd);
-		if (toAnd) return new Not(new And(new Not(this.a), new Not(this.b))).simplify(toAnd);
+		if (toAnd) return new Not(new And(new Not(this.a), new Not(this.b))).simplify(true);
 		return this;
 	}
 }

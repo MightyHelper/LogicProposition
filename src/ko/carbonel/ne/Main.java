@@ -2,9 +2,7 @@ package ko.carbonel.ne;
 import ko.carbonel.ne.util.PresetExpression;
 import ko.carbonel.ne.util.Pair;
 import ko.carbonel.ne.util.operands.*;
-import ko.carbonel.ne.util.operands.Operand;
 import ko.carbonel.ne.util.Util;
-import ko.carbonel.ne.util.operands.Variable;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -58,12 +56,12 @@ public class Main {
 		 .collect(Collectors.toList());
 	}
 	public static String prettyPrintTruthTable(List<Pair<HashMap<String, Boolean>, Boolean>> truthTable, String title) {
-		HashMap<String, Boolean> variables = truthTable.get(0).first;
+		HashMap<String, Boolean> variables = truthTable.get(0).first();
 		if (variables == null) return "";
 		List<String> varNames = new ArrayList<>(variables.keySet());
 		List<String> headings = Stream.concat(varNames.stream().sorted(), Stream.of(title)).toList();
 		List<List<String>> cells = truthTable.stream()
-		 .map(key -> Stream.concat(new ArrayList<>(key.first.values()).stream(), Stream.of(key.second)).map(Util::boolToText).toList())
+		 .map(key -> Stream.concat(new ArrayList<>(key.first().values()).stream(), Stream.of(key.second())).map(Util::boolToText).toList())
 		 .toList();
 		StringBuilder output = new StringBuilder();
 		List<Integer> columnWidths = headings.stream().map(String::length).map(x -> x + 4).toList();

@@ -3,8 +3,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 public class Variable extends Operand {
-	public static String TRUE = "1";
-	public static String FALSE = "0";
+	public static final String TRUE = "1";
+	public static final String FALSE = "0";
 	public String getName() {
 		return name;
 	}

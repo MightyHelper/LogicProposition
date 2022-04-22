@@ -85,8 +85,8 @@ public class Util {
 		return outMap;
 	}
 	public static String analyseExpressionTruthValue(List<Pair<HashMap<String, Boolean>, Boolean>> truthTable) {
-		if (truthTable.stream().allMatch(x -> x.second)) return "Tautology";
-		else if (truthTable.stream().noneMatch(x -> x.second)) return "Contradiction";
+		if (truthTable.stream().allMatch(Pair::second)) return "Tautology";
+		else if (truthTable.stream().noneMatch(Pair::second)) return "Contradiction";
 		else return "Contingency";
 	}
 	public static List<String> addImpliedBrackets(List<String> elements) {

@@ -1,6 +1,6 @@
 package ko.carbonel.ne.util.operands;
 public class Not extends UnaryOperator {
-	public static String repr = "~";
+	public static final String repr = "~";
 	public Not(Operand a) {
 		super(a);
 	}

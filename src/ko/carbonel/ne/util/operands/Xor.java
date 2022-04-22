@@ -1,6 +1,6 @@
 package ko.carbonel.ne.util.operands;
 public class Xor extends BinaryOperator {
-	public static String repr = "^";
+	public static final String repr = "^";
 	public Xor(Operand a, Operand b) {
 		super(a, b);
 	}
