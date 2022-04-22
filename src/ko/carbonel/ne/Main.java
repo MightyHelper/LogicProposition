@@ -22,6 +22,10 @@ public class Main {
 		 .replaceAll("(\\|)|( ?or ?)", Or.repr)
 		 .replaceAll("(\\^)|( ?xor ?)", Xor.repr);
 	}
+	public static void showOperand(Operand op) {
+		List<Pair<HashMap<String, Boolean>, Boolean>> truthTable = getTruthTable(op, op.getVariables().stream().map(Variable::getName).distinct().toList());
+		System.out.println(prettyPrintTruthTable(truthTable, op.toString()));
+	}
 	public static void main(String[] args) {
 		if (args.length <= 0) {
 			printUsage();
@@ -40,8 +44,11 @@ public class Main {
 		String replacedOperations = replacer(expressionText);
 		System.out.println("Interpreted as : " + replacedOperations);
 		Operand expr = parseExpression(replacedOperations);
-		List<Pair<HashMap<String, Boolean>, Boolean>> truthTable = getTruthTable(expr, expr.getVariables().stream().map(Variable::getName).distinct().toList());
-		System.out.println(prettyPrintTruthTable(truthTable, expr.toString()));
+		showOperand(expr);
+		showOperand(expr.simplify(true));
+		showOperand(expr.simplify(false));
+		showOperand(new Iff(expr.simplify(true), expr));
+		showOperand(new Iff(expr.simplify(false), expr));
 	}
 	private static void printUsage() {
 		System.out.println("Argument usage: [preset <index>|custom \"Proposition\"] ");
@@ -64,10 +71,10 @@ public class Main {
 		 .toList();
 		StringBuilder output = new StringBuilder();
 		List<Integer> columnWidths = headings.stream().map(String::length).map(x -> x + 4).toList();
-		IntStream.range(0, columnWidths.size()).mapToObj(i -> Util.pad(headings.get(i), columnWidths.get(i))).forEach(output::append);
+		IntStream.range(0, columnWidths.size()).mapToObj(i -> Util.padCenter(headings.get(i), columnWidths.get(i))).forEach(output::append);
 		output.append("\n");
 		cells.forEach(cell -> {
-			IntStream.range(0, columnWidths.size()).mapToObj(i -> Util.pad(cell.get(i), columnWidths.get(i))).forEach(output::append);
+			IntStream.range(0, columnWidths.size()).mapToObj(i -> Util.padCenter(cell.get(i), columnWidths.get(i))).forEach(output::append);
 			output.append("\n");
 		});
 		output.append("Analysis result: ").append(Util.analyseExpressionTruthValue(truthTable));
@@ -77,7 +84,10 @@ public class Main {
 		expression = expression.trim();
 		if (expression.startsWith(Not.repr)) return new Not(parseExpression(expression.substring(1)));
 		List<String> parts = Util.splitOnFirstLevelBrackets(expression);
-		if (!Util.containsAnyOperator(expression)) return parts.size() == 1 ? new Variable(expression) : parseExpression(parts.get(0));
+		if (!Util.containsAnyOperator(expression)) {
+			if (parts.size() == 1 && !parts.get(0).contains(Not.repr)) return new Variable(parts.get(0));
+			return parseExpression(parts.get(0));
+		}
 		List<String> topLevelExpressions = Util.getTopLevelExpressions(parts);
 		List<String> subExpressions = Util.getSubExpressions(parts);
 		Optional<String> topPrecedenceOperator = Util.getTopPrecedenceOperator(topLevelExpressions);

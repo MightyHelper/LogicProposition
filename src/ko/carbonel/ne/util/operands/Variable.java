@@ -22,6 +22,10 @@ public class Variable extends Operand {
 		}
 	}
 	@Override
+	public Operand simplify(boolean toAnd) {
+		return this;
+	}
+	@Override
 	public String toString() {
 		return name;
 	}

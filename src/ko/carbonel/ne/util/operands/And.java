@@ -12,4 +12,10 @@ public class And extends BinaryOperator {
 	public String toString() {
 		return "(" + a + repr + b + ")";
 	}
+	@Override
+	public Operand simplify(boolean toAnd) {
+		simplifyArguments(toAnd);
+		if (toAnd) return this;
+		return new Not(new Or(new Not(this.a), new Not(this.b))).simplify(toAnd);
+	}
 }

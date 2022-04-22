@@ -12,4 +12,9 @@ public class Not extends UnaryOperator {
 	public String toString() {
 		return "¬" + a;
 	}
+	@Override
+	public Operand simplify(boolean toAnd) {
+		this.a = this.a.simplify(toAnd);
+		return a instanceof Not ? ((Not) a).a.simplify(toAnd) : this;
+	}
 }

@@ -12,4 +12,9 @@ public class Xor extends BinaryOperator {
 	public String toString() {
 		return "(" + a + repr + b + ")";
 	}
+	@Override
+	public Operand simplify(boolean toAnd) {
+		this.simplifyArguments(toAnd);
+		return new Not(new Iff(this.a, this.b)).simplify(toAnd);
+	}
 }

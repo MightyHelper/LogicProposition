@@ -12,4 +12,9 @@ public class Iff extends BinaryOperator {
 	public String toString() {
 		return "(" + a + repr + b + ")";
 	}
+	@Override
+	public Operand simplify(boolean toAnd) {
+		this.simplifyArguments(toAnd);
+		return new And(new Implies(this.a, this.b), new Implies(this.b, this.a)).simplify(toAnd);
+	}
 }

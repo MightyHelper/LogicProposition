@@ -14,6 +14,10 @@ public abstract class BinaryOperator extends Operator {
 		this.a = a;
 		this.b = b;
 	}
+	protected void simplifyArguments(boolean toAnd) {
+		this.a = this.a.simplify(toAnd);
+		this.b = this.b.simplify(toAnd);
+	}
 	abstract public boolean compute(boolean va, boolean vb);
 	public boolean calculate(HashMap<String, Boolean> values) {
 		return compute(a.calculate(values), b.calculate(values));

@@ -12,7 +12,7 @@ public class Util {
 	public static String boolToText(Boolean v) {
 		return v ? "T" : "F";
 	}
-	public static String pad(String s, Integer integer) {
+	public static String padCenter(String s, Integer integer) {
 		int start = (integer - s.length()) >> 1;
 		int end = integer - s.length() - start;
 		return " ".repeat(Math.max(start, 0)) + s + " ".repeat(Math.max(end, 0));
@@ -26,13 +26,10 @@ public class Util {
 		binaryOperatorMapper.put(Or.repr, Or.class);
 		return binaryOperatorMapper;
 	}
-	public static List<String> mergeLists(List<String> topLevelOps, List<String> subExpressions) {
-		List<String> out = new ArrayList<>();
-		for (int i = 0; i < topLevelOps.size() + subExpressions.size(); i++) {
-			if ((i & 1) == 0) out.add(topLevelOps.get(i >> 1));
-			else out.add(subExpressions.get(i >> 1));
-		}
-		return out;
+	public static List<String> mergeLists(List<String> topLevelExpressions, List<String> subExpressions) {
+		return IntStream.range(0, topLevelExpressions.size() + subExpressions.size())
+		 .mapToObj(i -> ((i & 1) == 0 ? topLevelExpressions : subExpressions).get(i >> 1))
+		 .toList();
 	}
 	public static List<String> splitOnFirstLevelBrackets(String expression) {
 		int openCount = 0;
@@ -43,21 +40,22 @@ public class Util {
 		List<String> groupedSubPropositions = new ArrayList<>();
 		for (int i = 0; i < expression.length(); i++) {
 			if (expression.charAt(i) == '(') {
-				if (openCount == 0) {
-					groupedSubPropositions.add(expression.substring(startPoint + 1, i));
-					startPoint = i;
-				}
+				startPoint = resetStartAndAddSubProposition(expression, openCount, startPoint, groupedSubPropositions, i);
 				openCount++;
 			} else if (expression.charAt(i) == ')') {
 				openCount--;
-				if (openCount == 0) {
-					groupedSubPropositions.add(expression.substring(startPoint + 1, i));
-					startPoint = i;
-				}
+				startPoint = resetStartAndAddSubProposition(expression, openCount, startPoint, groupedSubPropositions, i);
 			}
 		}
 		if (startPoint < expression.length() - 1) groupedSubPropositions.add(expression.substring(startPoint + 1));
-		return groupedSubPropositions.get(0).equals("") && groupedSubPropositions.size() == 2 ? splitOnFirstLevelBrackets(groupedSubPropositions.get(1)) : groupedSubPropositions;
+		return groupedSubPropositions.get(0).length() == 0 && groupedSubPropositions.size() == 2 ?
+		 splitOnFirstLevelBrackets(groupedSubPropositions.get(1)) :
+		 groupedSubPropositions;
+	}
+	private static int resetStartAndAddSubProposition(String expression, int openCount, int startPoint, List<String> groupedSubPropositions, int i) {
+		if (openCount != 0) return startPoint;
+		groupedSubPropositions.add(expression.substring(startPoint + 1, i));
+		return i;
 	}
 	public static Operand createBinaryOperator(String operator, String lhs, String rhs) {
 		HashMap<String, Class<?>> binaryMapper = getBinaryOperatorMapper();
@@ -95,8 +93,9 @@ public class Util {
 		return elements.stream().map("(%s)"::formatted).toList();
 	}
 	public static String getExpressionPartThatContains(List<String> expressions, String operator) {
-		// We already checked this
-		//noinspection OptionalGetWithoutIsPresent
-		return expressions.stream().filter(x -> x.contains(operator)).findFirst().get();
+		return expressions.stream()
+		 .filter(x -> x.contains(operator))
+		 .findFirst()
+		 .orElseThrow(() -> new RuntimeException("Tried to locate previously located operator and failed."));
 	}
 }

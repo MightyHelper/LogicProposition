@@ -12,4 +12,9 @@ public class Implies extends BinaryOperator {
 	public String toString() {
 		return "(" + a + repr + b + ")";
 	}
+	@Override
+	public Operand simplify(boolean toAnd) {
+		this.simplifyArguments(toAnd);
+		return new Or(new Not(this.a), this.b).simplify(toAnd);
+	}
 }
