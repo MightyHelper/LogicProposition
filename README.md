@@ -26,7 +26,7 @@ To use, `java -jar LogicProposition.jar custom "<Content>"`
 | Implies  | `→` `->` `implies` `therefore` `then`             |
 | Iff      | `<->` `=` `iff`                                   |
 | And      | `∧` `&` `and` `but`                               |
-| Or       | `∨` `&#124;` `or` `but`                           |
+| Or       | `∨` `\|` `or` `but`                               |
 | Xor      | `^` `xor`                                         |
 |          | `if` `it is`                                      |
 
