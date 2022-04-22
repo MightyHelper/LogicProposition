@@ -10,7 +10,7 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 public class Main {
 	public static void main(String[] args) {
-		if (args.length <= 2) {
+		if (args.length < 2) {
 			printUsage();
 			return;
 		}
@@ -19,14 +19,22 @@ public class Main {
 			case "custom" -> args[1];
 			default -> "";
 		};
+		String toRepr = args.length == 3 ? args[2] : "none";
 		if (expressionText.length() == 0) {
 			printUsage();
 			return;
 		}
-		System.out.println("Got input : " + expressionText);
+		System.out.println("Got input      : " + expressionText);
 		String replacedOperations = replacer(expressionText);
 		System.out.println("Interpreted as : " + replacedOperations);
 		Operand expr = parseExpression(replacedOperations);
+		System.out.println("Parsed      as : " + expr);
+		expr = switch (toRepr.toLowerCase()){
+			case "and" -> expr.simplify(true);
+			case "or" -> expr.simplify(false);
+			default -> expr;
+		};
+		System.out.println("Expressed   as : " + expr);
 		showOperand(expr);
 	}
 	public static String replacer(String expression) {
@@ -42,10 +50,11 @@ public class Main {
 	}
 	public static void showOperand(Operand op) {
 		List<Pair<HashMap<String, Boolean>, Boolean>> truthTable = getTruthTable(op, op.getVariables().stream().map(Variable::getName).distinct().toList());
+		System.out.println("Truth Table:");
 		System.out.println(prettyPrintTruthTable(truthTable, op.toString()));
 	}
 	private static void printUsage() {
-		System.out.println("Argument usage: [preset <index>|custom \"Proposition\"] ");
+		System.out.println("Argument usage: [preset <index>|custom \"Proposition\"] (And|Or) ");
 		System.out.println("Available preset expressions:");
 		Arrays.stream(PresetExpression.values()).map(PresetExpression::toIndexed).forEach(System.out::println);
 	}
