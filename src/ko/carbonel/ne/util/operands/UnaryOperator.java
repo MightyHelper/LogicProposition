@@ -3,6 +3,10 @@ import java.util.HashMap;
 import java.util.List;
 public abstract class UnaryOperator extends Operator {
 	protected Operand a;
+	@Override
+	public void prefixVariables(String prefix) {
+		this.a.prefixVariables(prefix);
+	}
 	public UnaryOperator(Operand a) {
 		this.a = a;
 	}

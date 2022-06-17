@@ -10,6 +10,10 @@ public abstract class BinaryOperator extends Operator {
 		out.addAll(this.b.getVariables());
 		return out;
 	}
+	public void prefixVariables(String prefix){
+		this.a.prefixVariables(prefix);
+		this.b.prefixVariables(prefix);
+	}
 	public BinaryOperator(Operand a, Operand b) {
 		this.a = a;
 		this.b = b;

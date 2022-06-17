@@ -4,7 +4,9 @@ import ko.carbonel.ne.util.Pair;
 import ko.carbonel.ne.util.operands.*;
 import ko.carbonel.ne.util.Util;
 
+import java.io.*;
 import java.util.*;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -19,23 +21,36 @@ public class Main {
 			case "custom" -> args[1];
 			default -> "";
 		};
-		String toRepr = args.length == 3 ? args[2] : "none";
-		if (expressionText.length() == 0) {
-			printUsage();
-			return;
+		if (Objects.equals(args[0], "file")){
+			parseFile(args[1]);
+		}else{
+			String toRepr = args.length == 3 ? args[2] : "none";
+			if (expressionText.length() == 0) {
+				printUsage();
+				return;
+			}
+			System.out.println("Got input      : " + expressionText);
+			String replacedOperations = replacer(expressionText);
+			System.out.println("Interpreted as : " + replacedOperations);
+			Operand expr = parseExpression(replacedOperations);
+			System.out.println("Parsed      as : " + expr);
+			expr = switch (toRepr.toLowerCase()){
+				case "and" -> expr.simplify(true);
+				case "or" -> expr.simplify(false);
+				default -> expr;
+			};
+			System.out.println("Expressed   as : " + expr);
+			showOperand(expr);
 		}
-		System.out.println("Got input      : " + expressionText);
-		String replacedOperations = replacer(expressionText);
-		System.out.println("Interpreted as : " + replacedOperations);
-		Operand expr = parseExpression(replacedOperations);
-		System.out.println("Parsed      as : " + expr);
-		expr = switch (toRepr.toLowerCase()){
-			case "and" -> expr.simplify(true);
-			case "or" -> expr.simplify(false);
-			default -> expr;
-		};
-		System.out.println("Expressed   as : " + expr);
-		showOperand(expr);
+	}
+	private static void parseFile(String path) {
+		File f = new File(path);
+		try (BufferedReader is = new BufferedReader(new InputStreamReader(new FileInputStream(f)))) {
+			String line = is.readLine();
+			System.out.println(line);
+		} catch (IOException e) {
+			throw new RuntimeException(e);
+		}
 	}
 	public static String replacer(String expression) {
 		return expression
@@ -45,8 +60,8 @@ public class Main {
 		 .replaceAll("(->)|( ?implies ?)|( ?therefore ?)|( ?then ?)", Implies.repr)
 		 .replaceAll("(<->)|( ?iff ?)", Iff.repr)
 		 .replaceAll("(&)|( ?and ?)|( ?but ?)", And.repr)
-		 .replaceAll("(\\|)|( ?or ?)", Or.repr)
-		 .replaceAll("(\\^)|( ?xor ?)", Xor.repr);
+		 .replaceAll("(\\^)|( ?xor ?)", Xor.repr)
+		 .replaceAll("(\\|)|( ?or ?)", Or.repr);
 	}
 	public static void showOperand(Operand op) {
 		List<Pair<HashMap<String, Boolean>, Boolean>> truthTable = getTruthTable(op, op.getVariables().stream().map(Variable::getName).distinct().toList());
@@ -100,7 +115,7 @@ public class Main {
 		return finalValueParser(topLevelExpressions, sectionIndex, topPrecedence, subExpressions);
 	}
 	private static Operand finalValueParser(List<String> topLevelOps, int sectionIndex, String topPrecedence, List<String> subExpressions) {
-		String[] mainOperatorDirectArguments = topLevelOps.get(sectionIndex).split(topPrecedence, 2);
+		String[] mainOperatorDirectArguments = topLevelOps.get(sectionIndex).split(Pattern.quote(topPrecedence), 2);
 		List<String> allOperations = Util.mergeLists(topLevelOps, Util.addImpliedBrackets(subExpressions));
 		String lhs = String.join("", allOperations.subList(0, sectionIndex << 1)) + mainOperatorDirectArguments[0];
 		String rhs = mainOperatorDirectArguments[1] + String.join("", allOperations.subList((sectionIndex << 1) + 1, allOperations.size()));
